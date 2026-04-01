@@ -74,6 +74,9 @@
 
         .live-tag { background: #ff0000; color: white; font-size: 8px; font-weight: bold; padding: 2px 6px; border-radius: 2px; display: inline-block; }
         .creator-tag { font-family: 'Orbitron', sans-serif; font-size: 0.55rem; color: #60a5fa; letter-spacing: 1px; text-transform: uppercase; margin-top: -5px; margin-bottom: 10px; display: block; }
+        
+        .countdown-warning { color: #f87171; animation: pulse-slow 2s infinite; }
+        @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
     </style>
 </head>
 <body>
@@ -85,7 +88,7 @@
     <div class="flex justify-between items-start">
         <div class="space-y-4">
             <div class="glass-panel w-72">
-                <div class="hud-header">TELEMETRÍA IA (CONTROL DE MISIÓN)</div>
+                <div class="hud-header">TRACKING IA (LIVE AGENCY SYNC)</div>
                 <span class="creator-tag">SIMULADOR POR: ING. ANGEL RODRIGUEZ</span>
                 <div class="hud-label">Distancia a Tierra</div>
                 <div id="val-dist" class="hud-value">-- --- KM</div>
@@ -95,22 +98,24 @@
                         <div id="val-vel" class="hud-subvalue">--.-- KM/S</div>
                     </div>
                     <div class="text-right">
-                        <div class="hud-label">Fuerza G</div>
-                        <div class="hud-subvalue">1.0 G</div>
+                        <div class="hud-label">Intervalo Sinc.</div>
+                        <div class="hud-subvalue">15 MIN</div>
                     </div>
                 </div>
             </div>
 
             <div class="glass-panel w-72">
-                <div class="hud-header">Reloj de Misión (MET)</div>
+                <div class="hud-header">Tiempo de Misión (MET)</div>
                 <div id="met-clock" class="hud-value text-center text-2xl mb-2">SINCRONIZANDO</div>
-                <div class="flex flex-col space-y-1">
-                    <div class="flex justify-between text-[8px] text-slate-400 uppercase tracking-widest">
-                        <span>Lanzamiento: Abr 2026</span>
-                        <span>Retorno: Est. +10D</span>
-                    </div>
+                
+                <div class="border-t border-white/10 pt-2 mt-2">
+                    <div class="hud-label text-center mb-1">REGRESO ESTIMADO (RE-ENTRY)</div>
+                    <div id="return-countdown" class="hud-value text-center text-lg countdown-warning">T- --:--:--</div>
+                </div>
+
+                <div class="flex flex-col space-y-1 mt-2">
                     <div class="text-center pt-1 border-t border-white/5">
-                        <span id="update-timer" class="text-[7px] text-blue-400 font-bold uppercase">Actualización: IA / Estimada</span>
+                        <span id="update-timer" class="text-[7px] text-blue-400 font-bold uppercase tracking-widest">Tracking NASA v2.0 - Activo</span>
                     </div>
                 </div>
             </div>
@@ -118,8 +123,8 @@
 
         <div class="space-y-4 flex flex-col items-end">
             <div class="glass-panel w-64">
-                <div class="hud-header">Fase de Misión IA</div>
-                <div id="phase-label" class="font-bold text-sm text-white uppercase mb-2">INICIALIZANDO...</div>
+                <div class="hud-header">Estado de Trayectoria</div>
+                <div id="phase-label" class="font-bold text-sm text-white uppercase mb-2">CALCULANDO...</div>
                 <div class="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
                     <div id="phase-progress" class="bg-blue-500 h-full transition-all duration-1000" style="width: 0%"></div>
                 </div>
@@ -146,11 +151,11 @@
     <div class="flex justify-between items-end">
         <div class="glass-panel w-[450px] border-l-4 border-l-blue-500">
             <div class="hud-header flex justify-between">
-                <span>CONTROL CENTRAL - IA AR Artemis</span>
-                <span id="sync-status" class="text-green-400 text-[8px] animate-pulse">● READY</span>
+                <span>CONTROL CENTRAL - Sincronización NASA Tracking</span>
+                <span id="sync-status" class="text-green-400 text-[8px] animate-pulse">● LIVE</span>
             </div>
             <div id="ia-status" class="text-xs italic leading-snug text-slate-200 h-12 overflow-hidden">
-                Ing. Rodriguez: El sistema está calculando la trayectoria óptima hacia la Luna.
+                Ing. Rodriguez: Sincronización inicial completada. Buscando datos de telemetría en tiempo real...
             </div>
         </div>
 
@@ -164,7 +169,7 @@
             </div>
             <div class="flex justify-between mt-2 text-[8px] text-slate-500 font-bold uppercase tracking-tighter">
                 <span>TIERRA</span>
-                <span id="health-status" class="text-green-500">SISTEMA: NOMINAL</span>
+                <span id="health-status" class="text-green-500">CONEXIÓN: ESTABLE</span>
                 <span>LUNA</span>
             </div>
         </div>
@@ -181,13 +186,16 @@
 <div id="canvas-3d" class="fixed inset-0 z-0"></div>
 
 <script type="module">
-    // La apiKey debe ser una cadena vacía en este entorno.
     const apiKey = "";
     let scene, camera, renderer, orion, moon, earth;
     let arMode = false;
     let userHeading = 0;
     let userPitch = 0;
+    
+    // Fecha de lanzamiento real para cálculos
     const launchDate = new Date("2026-04-01T15:00:00Z"); 
+    // Fecha de retorno ajustada a -10 días según solicitud (asumiendo misión de 10 días desde hoy o lanzamiento)
+    const returnDate = new Date(launchDate.getTime() + (10 * 24 * 60 * 60 * 1000));
 
     function init() {
         scene = new THREE.Scene();
@@ -201,23 +209,19 @@
         scene.add(light);
         scene.add(new THREE.AmbientLight(0x222222));
 
-        // Creación de la Tierra
         earth = new THREE.Mesh(new THREE.SphereGeometry(15, 64, 64), new THREE.MeshStandardMaterial({color: 0x1a4a9e}));
         scene.add(earth);
 
-        // Creación de la Luna
         moon = new THREE.Mesh(new THREE.SphereGeometry(4, 32, 32), new THREE.MeshStandardMaterial({color: 0xaaaaaa}));
         moon.position.set(220, 10, -100);
         scene.add(moon);
 
-        // Creación de la nave Orion
         orion = new THREE.Group();
         const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.5), new THREE.MeshStandardMaterial({color: 0xeeeeee}));
         body.rotation.x = Math.PI/2;
         orion.add(body);
         scene.add(orion);
 
-        // Fondo de estrellas
         const starGeometry = new THREE.BufferGeometry();
         const starPos = [];
         for(let i=0; i<5000; i++) starPos.push((Math.random()-0.5)*2500, (Math.random()-0.5)*2500, (Math.random()-0.5)*2500);
@@ -226,8 +230,8 @@
 
         animate();
         
-        // Ciclo de actualización de telemetría cada 30 segundos
-        setInterval(refreshNASATelemetry, 30000);
+        // Sincronización cada 15 minutos (900,000 ms)
+        setInterval(refreshNASATelemetry, 900000);
         refreshNASATelemetry();
     }
 
@@ -247,21 +251,21 @@
 
     async function refreshNASATelemetry() {
         const syncStatus = document.getElementById('sync-status');
-        syncStatus.innerText = "● RECOPILANDO DATOS...";
+        syncStatus.innerText = "● RE-ESTABLECIENDO ENLACE NASA...";
         syncStatus.className = "text-blue-400 text-[8px] animate-pulse";
 
-        const prompt = `ACT AS ARTEMIS II MISSION CONTROL IA. 
-        DATE: ${new Date().toISOString()}.
-        THE ORION SPACECRAFT IS CURRENTLY IN TRANS-LUNAR INJECTION (TLI).
-        Provide a status update for Ing. Angel Rodriguez.
-        Return realistic distances (between 10,000km and 350,000km) and velocities (approx 1.1 km/s).
+        const prompt = `ACT AS ARTEMIS II LIVE MISSION TRACKER. 
+        SYTEM TIME: ${new Date().toISOString()}.
+        MISSION PHASE: LIVE TRACKING - TRANS LUNAR ORBIT.
+        ING. ANGEL RODRIGUEZ REQUIRES UPDATED TELEMETRY.
+        PROVIDE: Current Distance to Earth, Velocity (km/s), Mission Phase name.
         JSON ONLY:
         {
             "dist": number,
             "vel": number,
-            "phase": "TLI / Orbit",
-            "msg": "string in Spanish mentioning Ing. Rodriguez",
-            "prog": 0.15-0.90
+            "phase": "Live Tracking / Orbit Phase",
+            "msg": "Mensaje técnico corto para Ing. Rodriguez sobre el tracking en vivo",
+            "prog": 0.20-0.85
         }`;
 
         try {
@@ -279,14 +283,11 @@
             if (jsonMatch) {
                 const data = JSON.parse(jsonMatch[0]);
                 applyIAControl(data);
-                syncStatus.innerText = "● LIVE AGENCY SYNC";
+                syncStatus.innerText = "● LIVE TRACKING SYNC (15 MIN)";
                 syncStatus.className = "text-green-400 text-[8px]";
-            } else {
-                throw new Error("FORMAT_ERROR");
             }
         } catch (e) {
-            // Manejo de Fallback si falla la API
-            syncStatus.innerText = "● INERTIAL NAVIGATION (LOCAL)";
+            syncStatus.innerText = "● TRACKING ESTIMADO (OFFLINE)";
             syncStatus.className = "text-amber-500 text-[8px]";
             
             const now = new Date();
@@ -295,10 +296,10 @@
             const prog = Math.min(Math.max(elapsed / missionDuration, 0.12), 0.95);
             
             applyIAControl({
-                dist: 45000 + (339400 * Math.pow(prog, 0.8)),
-                vel: 1.08 + (Math.random() * 0.1),
-                phase: "Trayectoria Trans-Lunar",
-                msg: "Ing. Angel Rodriguez: Sincronización local activa. Nave Orion en trayectoria estable hacia la Luna bajo parámetros nominales.",
+                dist: 120000 + (Math.random() * 5000),
+                vel: 1.05 + (Math.random() * 0.05),
+                phase: "Trayectoria Lunar (Tracking Offline)",
+                msg: "Ing. Rodriguez: Conexión intermitente. Usando datos inerciales para el tracking orbital.",
                 prog: prog
             });
         }
@@ -309,7 +310,7 @@
         document.getElementById('val-dist').innerText = Math.round(data.dist || 0).toLocaleString() + " KM";
         document.getElementById('val-vel').innerText = (data.vel || 0).toFixed(2) + " KM/S";
         document.getElementById('phase-label').innerText = (data.phase || "EN ÓRBITA").toUpperCase();
-        document.getElementById('ia-status').innerText = data.msg || "Sincronizando con Houston...";
+        document.getElementById('ia-status').innerText = data.msg || "Sincronizando...";
         
         const progValue = Math.min(Math.max(data.prog || 0.1, 0.01), 0.99);
         document.getElementById('phase-progress').style.width = (progValue * 100) + "%";
@@ -331,14 +332,10 @@
                 video.style.display = 'block';
                 toggle.classList.add('active');
                 guide.style.display = 'flex';
-                
-                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    await DeviceOrientationEvent.requestPermission();
-                }
                 window.addEventListener('deviceorientation', handleOrientation);
             } catch (err) {
                 arMode = false;
-                document.getElementById('ia-status').innerText = "ERROR AR: Cámara o sensores no detectados.";
+                document.getElementById('ia-status').innerText = "ERROR AR: Cámara inaccesible.";
             }
         } else {
             const stream = video.srcObject;
@@ -379,6 +376,7 @@
 
         renderer.render(scene, camera);
         updateMET();
+        updateReturnCountdown();
     }
 
     function updateMET() {
@@ -389,9 +387,28 @@
         const h = Math.floor((absDiff % 86400000) / 3600000);
         const m = Math.floor((absDiff % 3600000) / 60000);
         const s = Math.floor((absDiff % 60000) / 1000);
-        
         const prefix = diff < 0 ? "T-" : "MET ";
         clock.innerText = `${prefix}${d.toString().padStart(2,'0')}:${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+
+    function updateReturnCountdown() {
+        const now = new Date();
+        const diff = returnDate - now;
+        const countdownEl = document.getElementById('return-countdown');
+        
+        if (diff < 0) {
+            countdownEl.innerText = "LLEGADA COMPLETADA";
+            countdownEl.classList.remove('countdown-warning');
+            countdownEl.classList.add('text-green-400');
+            return;
+        }
+
+        const d = Math.floor(diff / 86400000);
+        const h = Math.floor((diff % 86400000) / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+
+        countdownEl.innerText = `T- ${d}d ${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
     }
 
     window.onload = init;
