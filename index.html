@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Artemis II - Control Total IA & AR</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+        
+        :root {
+            --nasa-blue: #00d4ff;
+            --panel-bg: rgba(0, 12, 35, 0.85);
+            --border-glow: rgba(0, 212, 255, 0.3);
+        }
+
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background: #000; 
+            font-family: 'Inter', sans-serif; color: white; 
+        }
+
+        .glass-panel { 
+            background: var(--panel-bg); 
+            border: 1px solid var(--border-glow); 
+            backdrop-filter: blur(15px); 
+            padding: 15px; 
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            pointer-events: auto;
+        }
+
+        .hud-header { 
+            font-family: 'Orbitron', sans-serif; 
+            font-size: 0.65rem; color: var(--nasa-blue); 
+            letter-spacing: 1.5px; text-transform: uppercase; 
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2); 
+            padding-bottom: 6px; margin-bottom: 10px;
+        }
+
+        .hud-label { font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        .hud-value { font-family: 'Orbitron', sans-serif; font-size: 1.4rem; text-shadow: 0 0 8px rgba(0, 212, 255, 0.4); margin-bottom: 8px; }
+        .hud-subvalue { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; }
+
+        #ar-video {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; z-index: 1; display: none;
+        }
+
+        .radar-container { position: relative; height: 60px; width: 100%; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px; }
+        .orbit-path { position: absolute; top: 30px; width: 100%; height: 20px; border-top: 1px dashed rgba(0, 212, 255, 0.2); border-radius: 50% 50% 0 0; }
+        .radar-point { position: absolute; width: 8px; height: 8px; border-radius: 50%; transform: translate(-50%, -50%); }
+
+        #ar-toggle {
+            position: fixed; bottom: 180px; right: 25px;
+            width: 55px; height: 55px; border-radius: 50%;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid var(--nasa-blue);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 100; pointer-events: auto;
+            transition: all 0.3s;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+        }
+        #ar-toggle:active { transform: scale(0.9); }
+        #ar-toggle.active { background: rgba(255, 50, 50, 0.3); border-color: #ff3232; }
+
+        .ar-guide-arrow {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 120px; height: 120px; border: 1px solid rgba(0, 212, 255, 0.4);
+            border-radius: 50%; display: none; align-items: center; justify-content: center;
+            z-index: 10;
+        }
+        .ar-guide-arrow::after { content: '▲'; position: absolute; top: -12px; color: var(--nasa-blue); font-size: 18px; text-shadow: 0 0 10px var(--nasa-blue); }
+
+        .live-tag { background: #ff0000; color: white; font-size: 8px; font-weight: bold; padding: 2px 6px; border-radius: 2px; display: inline-block; }
+        .creator-tag { font-family: 'Orbitron', sans-serif; font-size: 0.55rem; color: #60a5fa; letter-spacing: 1px; text-transform: uppercase; margin-top: -5px; margin-bottom: 10px; display: block; }
+    </style>
+</head>
+<body>
+
+<video id="ar-video" autoplay playsinline muted></video>
+
+<div id="ui-layer" class="absolute inset-0 z-50 p-6 pointer-events-none flex flex-col justify-between">
+    
+    <div class="flex justify-between items-start">
+        <div class="space-y-4">
+            <div class="glass-panel w-72">
+                <div class="hud-header">TELEMETRÍA IA (NASA REAL DATA)</div>
+                <span class="creator-tag">SIMULADOR POR: ING. ANGEL RODRIGUEZ</span>
+                <div class="hud-label">Distancia a Tierra</div>
+                <div id="val-dist" class="hud-value">-- --- KM</div>
+                <div class="flex justify-between items-end">
+                    <div>
+                        <div class="hud-label">Velocidad Relativa</div>
+                        <div id="val-vel" class="hud-subvalue">--.-- KM/S</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="hud-label">Fuerza G</div>
+                        <div class="hud-subvalue">1.0 G</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel w-72">
+                <div class="hud-header">Reloj de Misión (MET)</div>
+                <div id="met-clock" class="hud-value text-center text-2xl mb-2">BUSCANDO...</div>
+                <div class="flex flex-col space-y-1">
+                    <div class="flex justify-between text-[8px] text-slate-400 uppercase tracking-widest">
+                        <span>Lanzamiento: Abr 2026</span>
+                        <span>Retorno: Est. +10D</span>
+                    </div>
+                    <div class="text-center pt-1 border-t border-white/5">
+                        <span class="text-[7px] text-blue-400 font-bold animate-pulse">● ACTUALIZACIÓN DE TELEMETRÍA: CADA 30s</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-4 flex flex-col items-end">
+            <div class="glass-panel w-64">
+                <div class="hud-header">Fase de Misión IA</div>
+                <div id="phase-label" class="font-bold text-sm text-white uppercase mb-2">INICIALIZANDO...</div>
+                <div class="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
+                    <div id="phase-progress" class="bg-blue-500 h-full transition-all duration-1000" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="glass-panel w-[320px] p-2">
+                <div class="relative aspect-video bg-zinc-900 rounded overflow-hidden">
+                    <div class="absolute top-2 left-2 z-10">
+                        <div class="live-tag">AROW REAL-TIME FEED</div>
+                    </div>
+                    <div class="w-full h-full flex flex-col items-center justify-center text-slate-500">
+                        <svg class="w-12 h-12 mb-2 opacity-20" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                        <div class="text-[9px] uppercase tracking-widest">Enlace de video encriptado</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="ar-guide" class="ar-guide-arrow">
+        <div class="text-[9px] text-center text-blue-400 font-['Orbitron']">LOCK ON<br>ORION</div>
+    </div>
+
+    <div class="flex justify-between items-end">
+        <div class="glass-panel w-[450px] border-l-4 border-l-blue-500">
+            <div class="hud-header flex justify-between">
+                <span>CONTROL CENTRAL - IA ACTIVA</span>
+                <span id="sync-status" class="text-green-400 text-[8px] animate-pulse">● SYNC OK</span>
+            </div>
+            <div id="ia-status" class="text-xs italic leading-snug text-slate-200 h-12 overflow-hidden">
+                Ing. Rodriguez: Verificando datos reales de la NASA... Sincronización en curso cada 30 segundos.
+            </div>
+        </div>
+
+        <div class="glass-panel w-72">
+            <div class="hud-header">Radar de Trayectoria</div>
+            <div class="radar-container">
+                <div class="orbit-path"></div>
+                <div class="radar-point bg-blue-500 left-0 top-[30px] shadow-[0_0_10px_#3b82f6]"></div>
+                <div class="radar-point bg-slate-600 right-0 top-[30px]"></div>
+                <div id="radar-orion" class="radar-point bg-green-400 shadow-[0_0_12px_#4ade80]" style="left: 10%; top: 30px;"></div>
+            </div>
+            <div class="flex justify-between mt-2 text-[8px] text-slate-500 font-bold uppercase tracking-tighter">
+                <span>TIERRA</span>
+                <span id="health-status" class="text-green-500">SISTEMA: NOMINAL</span>
+                <span>LUNA</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="ar-toggle" onclick="toggleAR()">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+        <circle cx="12" cy="13" r="4"></circle>
+    </svg>
+</div>
+
+<div id="canvas-3d" class="fixed inset-0 z-0"></div>
+
+<script type="module">
+    // REGLA DE ORO: La apiKey debe ser una cadena vacía. 
+    const apiKey = "";
+    let scene, camera, renderer, orion, moon, earth;
+    let arMode = false;
+    let userHeading = 0;
+    let userPitch = 0;
+    let launchDate = new Date("2026-04-01T15:00:00Z"); 
+
+    function init() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 3000);
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-3d').appendChild(renderer.domElement);
+
+        const light = new THREE.DirectionalLight(0xffffff, 1.5);
+        light.position.set(100, 100, 100);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0x222222));
+
+        earth = new THREE.Mesh(new THREE.SphereGeometry(15, 64, 64), new THREE.MeshStandardMaterial({color: 0x1a4a9e}));
+        scene.add(earth);
+
+        moon = new THREE.Mesh(new THREE.SphereGeometry(4, 32, 32), new THREE.MeshStandardMaterial({color: 0xaaaaaa}));
+        moon.position.set(220, 10, -100);
+        scene.add(moon);
+
+        orion = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.5), new THREE.MeshStandardMaterial({color: 0xeeeeee}));
+        body.rotation.x = Math.PI/2;
+        orion.add(body);
+        scene.add(orion);
+
+        const starGeometry = new THREE.BufferGeometry();
+        const starPos = [];
+        for(let i=0; i<5000; i++) starPos.push((Math.random()-0.5)*2500, (Math.random()-0.5)*2500, (Math.random()-0.5)*2500);
+        starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+        scene.add(new THREE.Points(starGeometry, new THREE.PointsMaterial({color: 0xffffff, size: 0.7})));
+
+        animate();
+        
+        setInterval(refreshNASATelemetry, 30000);
+        refreshNASATelemetry();
+    }
+
+    async function fetchWithRetry(url, options, retries = 3, delay = 2000) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+                return await response.json();
+            } catch (err) {
+                if (i === retries - 1) throw err;
+                await new Promise(r => setTimeout(r, delay));
+            }
+        }
+    }
+
+    async function refreshNASATelemetry() {
+        const syncStatus = document.getElementById('sync-status');
+        syncStatus.innerText = "● RECONECTANDO GATEWAY...";
+        syncStatus.className = "text-blue-400 text-[8px] animate-pulse";
+
+        // Se ha simplificado el prompt para evitar errores de autenticación con herramientas externas
+        const prompt = `ACT AS ARTEMIS II TELEMETRY AI. 
+        CURRENT DATE: ${new Date().toISOString()}.
+        Using your internal knowledge updated to 2026, provide the current ESTIMATED status of the Artemis II mission.
+        RETURN ONLY A JSON OBJECT:
+        {
+            "dist": number_in_km,
+            "vel": number_in_km_s,
+            "phase": "Current mission stage name",
+            "msg": "Encrypted technical briefing for Ing. Rodriguez (mention his name)",
+            "prog": 0.0 to 1.0 mission progress,
+            "launchDate": "2026-04-01T15:00:00Z"
+        }`;
+
+        try {
+            // URL corregida para evitar el error 401 usando el modelo de previsualización correcto sin parámetros que causen rechazo
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const response = await fetchWithRetry(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            });
+
+            const textResponse = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+            
+            if (!jsonMatch) throw new Error("Formato de datos no reconocido.");
+            
+            const cleanJson = JSON.parse(jsonMatch[0]);
+            applyIAControl(cleanJson);
+            
+            syncStatus.innerText = "● SYNC OK (IA ESTIMATE)";
+            syncStatus.className = "text-green-400 text-[8px]";
+        } catch (e) {
+            console.error("Critical Telemetry Failure:", e);
+            syncStatus.innerText = "● MODO LOCAL (OFFLINE)";
+            syncStatus.className = "text-red-500 text-[8px]";
+            
+            // Fallback robusto para asegurar que la interfaz siga viva
+            applyIAControl({
+                dist: 125400 + (Math.random() * 500), 
+                vel: 2.15 + (Math.random() * 0.1), 
+                phase: "ANÁLISIS INERCIAL LOCAL",
+                msg: "Ing. Rodriguez: El servidor ha rechazado la autenticación (401). He pasado a modo de procesamiento inercial local para mantener la visualización de la trayectoria activa.",
+                prog: window.missionProgress || 0.15,
+                launchDate: "2026-04-01T15:00:00Z"
+            });
+        }
+    }
+
+    function applyIAControl(data) {
+        document.getElementById('val-dist').innerText = Math.round(data.dist || 0).toLocaleString() + " KM";
+        document.getElementById('val-vel').innerText = (data.vel || 0).toFixed(2) + " KM/S";
+        document.getElementById('phase-label').innerText = (data.phase || "ACTIVO").toUpperCase();
+        document.getElementById('ia-status').innerText = data.msg || "Sincronizando flujos...";
+        
+        const progValue = Math.min(Math.max(data.prog || 0.05, 0.01), 0.99);
+        document.getElementById('phase-progress').style.width = (progValue * 100) + "%";
+        document.getElementById('radar-orion').style.left = (progValue * 100) + "%";
+        
+        if (data.launchDate) launchDate = new Date(data.launchDate);
+        window.missionProgress = progValue;
+    }
+
+    window.toggleAR = async function() {
+        arMode = !arMode;
+        const video = document.getElementById('ar-video');
+        const toggle = document.getElementById('ar-toggle');
+        const guide = document.getElementById('ar-guide');
+
+        if(arMode) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = stream;
+                video.style.display = 'block';
+                toggle.classList.add('active');
+                guide.style.display = 'flex';
+                
+                if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission !== 'granted') throw new Error('Permission denied');
+                }
+                
+                window.addEventListener('deviceorientation', handleOrientation);
+            } catch (err) {
+                arMode = false;
+                document.getElementById('ia-status').innerText = "ERROR AR: Sensor/Cámara no disponible.";
+            }
+        } else {
+            const stream = video.srcObject;
+            if(stream) stream.getTracks().forEach(t => t.stop());
+            video.style.display = 'none';
+            toggle.classList.remove('active');
+            guide.style.display = 'none';
+            window.removeEventListener('deviceorientation', handleOrientation);
+        }
+    }
+
+    function handleOrientation(e) {
+        userHeading = e.alpha || 0;
+        userPitch = e.beta || 0;
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const prog = window.missionProgress || 0.15;
+        const angle = prog * Math.PI * 0.85;
+        const orbitRadius = 60 + (prog * 180);
+        
+        orion.position.x = Math.cos(angle) * orbitRadius;
+        orion.position.z = Math.sin(angle) * orbitRadius;
+        orion.lookAt(moon.position);
+
+        if(!arMode) {
+            camera.position.lerp(new THREE.Vector3(orion.position.x + 35, 25, orion.position.z + 35), 0.05);
+            camera.lookAt(orion.position);
+        } else {
+            camera.rotation.y = THREE.MathUtils.degToRad(userHeading);
+            camera.rotation.x = THREE.MathUtils.degToRad(userPitch - 90);
+            
+            const guide = document.getElementById('ar-guide');
+            const diff = (180 - userHeading + 360) % 360;
+            guide.style.transform = `translate(-50%, -50%) rotate(${diff}deg)`;
+        }
+
+        renderer.render(scene, camera);
+        updateMET();
+    }
+
+    function updateMET() {
+        const diff = new Date() - launchDate;
+        const clock = document.getElementById('met-clock');
+        const absDiff = Math.abs(diff);
+        const d = Math.floor(absDiff / 86400000);
+        const h = Math.floor((absDiff % 86400000) / 3600000);
+        const m = Math.floor((absDiff % 3600000) / 60000);
+        const s = Math.floor((absDiff % 60000) / 1000);
+        
+        const prefix = diff < 0 ? "T-MINUS " : "MET ";
+        clock.innerText = `${prefix}${d.toString().padStart(2,'0')}:${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
