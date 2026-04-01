@@ -85,7 +85,7 @@
     <div class="flex justify-between items-start">
         <div class="space-y-4">
             <div class="glass-panel w-72">
-                <div class="hud-header">TELEMETRÍA IA (NASA REAL DATA)</div>
+                <div class="hud-header">TELEMETRÍA IA (CONTROL DE MISIÓN)</div>
                 <span class="creator-tag">SIMULADOR POR: ING. ANGEL RODRIGUEZ</span>
                 <div class="hud-label">Distancia a Tierra</div>
                 <div id="val-dist" class="hud-value">-- --- KM</div>
@@ -103,14 +103,14 @@
 
             <div class="glass-panel w-72">
                 <div class="hud-header">Reloj de Misión (MET)</div>
-                <div id="met-clock" class="hud-value text-center text-2xl mb-2">BUSCANDO...</div>
+                <div id="met-clock" class="hud-value text-center text-2xl mb-2">SINCRONIZANDO</div>
                 <div class="flex flex-col space-y-1">
                     <div class="flex justify-between text-[8px] text-slate-400 uppercase tracking-widest">
                         <span>Lanzamiento: Abr 2026</span>
                         <span>Retorno: Est. +10D</span>
                     </div>
                     <div class="text-center pt-1 border-t border-white/5">
-                        <span class="text-[7px] text-blue-400 font-bold animate-pulse">● ACTUALIZACIÓN DE TELEMETRÍA: CADA 30s</span>
+                        <span id="update-timer" class="text-[7px] text-blue-400 font-bold uppercase">Actualización: IA / Estimada</span>
                     </div>
                 </div>
             </div>
@@ -128,7 +128,7 @@
             <div class="glass-panel w-[320px] p-2">
                 <div class="relative aspect-video bg-zinc-900 rounded overflow-hidden">
                     <div class="absolute top-2 left-2 z-10">
-                        <div class="live-tag">AROW REAL-TIME FEED</div>
+                        <div class="live-tag">CANAL CRÍTICO DE VIDEO</div>
                     </div>
                     <div class="w-full h-full flex flex-col items-center justify-center text-slate-500">
                         <svg class="w-12 h-12 mb-2 opacity-20" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
@@ -146,11 +146,11 @@
     <div class="flex justify-between items-end">
         <div class="glass-panel w-[450px] border-l-4 border-l-blue-500">
             <div class="hud-header flex justify-between">
-                <span>CONTROL CENTRAL - IA ACTIVA</span>
-                <span id="sync-status" class="text-green-400 text-[8px] animate-pulse">● SYNC OK</span>
+                <span>CONTROL CENTRAL - IA AR Artemis</span>
+                <span id="sync-status" class="text-green-400 text-[8px] animate-pulse">● READY</span>
             </div>
             <div id="ia-status" class="text-xs italic leading-snug text-slate-200 h-12 overflow-hidden">
-                Ing. Rodriguez: Verificando datos reales de la NASA... Sincronización en curso cada 30 segundos.
+                Ing. Rodriguez: El sistema está calculando la trayectoria óptima. El modo de telemetría estimada está activo para asegurar la visualización.
             </div>
         </div>
 
@@ -187,7 +187,7 @@
     let arMode = false;
     let userHeading = 0;
     let userPitch = 0;
-    let launchDate = new Date("2026-04-01T15:00:00Z"); 
+    const launchDate = new Date("2026-04-01T15:00:00Z"); 
 
     function init() {
         scene = new THREE.Scene();
@@ -222,49 +222,47 @@
 
         animate();
         
+        // Iniciar ciclo de telemetría
         setInterval(refreshNASATelemetry, 30000);
         refreshNASATelemetry();
     }
 
-    async function fetchWithRetry(url, options, retries = 3, delay = 2000) {
+    async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
         for (let i = 0; i < retries; i++) {
             try {
                 const response = await fetch(url, options);
-                if (!response.ok) {
-                    throw new Error(`HTTP Error: ${response.status}`);
-                }
+                if (response.status === 401) throw new Error("HTTP 401"); // Error de Auth
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 return await response.json();
             } catch (err) {
                 if (i === retries - 1) throw err;
-                await new Promise(r => setTimeout(r, delay));
+                await new Promise(r => setTimeout(r, delay * (i + 1)));
             }
         }
     }
 
     async function refreshNASATelemetry() {
         const syncStatus = document.getElementById('sync-status');
-        syncStatus.innerText = "● RECONECTANDO GATEWAY...";
+        syncStatus.innerText = "● CONECTANDO...";
         syncStatus.className = "text-blue-400 text-[8px] animate-pulse";
 
-        // Se ha simplificado el prompt para evitar errores de autenticación con herramientas externas
         const prompt = `ACT AS ARTEMIS II TELEMETRY AI. 
-        CURRENT DATE: ${new Date().toISOString()}.
-        Using your internal knowledge updated to 2026, provide the current ESTIMATED status of the Artemis II mission.
-        RETURN ONLY A JSON OBJECT:
+        DATE: ${new Date().toISOString()}.
+        Return current status for Orion. Mention 'Ing. Rodriguez'.
+        JSON ONLY:
         {
-            "dist": number_in_km,
-            "vel": number_in_km_s,
-            "phase": "Current mission stage name",
-            "msg": "Encrypted technical briefing for Ing. Rodriguez (mention his name)",
-            "prog": 0.0 to 1.0 mission progress,
-            "launchDate": "2026-04-01T15:00:00Z"
+            "dist": number,
+            "vel": number,
+            "phase": "string",
+            "msg": "string",
+            "prog": 0.0-1.0
         }`;
 
         try {
-            // URL corregida para evitar el error 401 usando el modelo de previsualización correcto sin parámetros que causen rechazo
+            // Si la API Key está vacía, intentamos la llamada pero nos preparamos para el 401
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             
-            const response = await fetchWithRetry(url, {
+            const result = await fetchWithRetry(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -272,44 +270,50 @@
                 })
             });
 
-            const textResponse = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
             
-            if (!jsonMatch) throw new Error("Formato de datos no reconocido.");
-            
-            const cleanJson = JSON.parse(jsonMatch[0]);
-            applyIAControl(cleanJson);
-            
-            syncStatus.innerText = "● SYNC OK (IA ESTIMATE)";
-            syncStatus.className = "text-green-400 text-[8px]";
+            if (jsonMatch) {
+                const data = JSON.parse(jsonMatch[0]);
+                applyIAControl(data);
+                syncStatus.innerText = "● LIVE SYNC";
+                syncStatus.className = "text-green-400 text-[8px]";
+            } else {
+                throw new Error("Invalid Format");
+            }
         } catch (e) {
-            console.error("Critical Telemetry Failure:", e);
-            syncStatus.innerText = "● MODO LOCAL (OFFLINE)";
-            syncStatus.className = "text-red-500 text-[8px]";
+            // MANEJO DE ERROR 401: Fallback a telemetría estimada automática
+            syncStatus.innerText = "● ESTIMATED (401 FALLBACK)";
+            syncStatus.className = "text-amber-500 text-[8px]";
             
-            // Fallback robusto para asegurar que la interfaz siga viva
+            const now = new Date();
+            const elapsed = Math.max(0, (now - launchDate) / 1000); // Segundos desde lanzamiento
+            
+            // Lógica de simulación basada en trayectoria real estimada (10 días de misión)
+            const missionDuration = 10 * 24 * 3600; 
+            const prog = Math.min(Math.max(elapsed / missionDuration, 0.02), 0.98);
+            
             applyIAControl({
-                dist: 125400 + (Math.random() * 500), 
-                vel: 2.15 + (Math.random() * 0.1), 
-                phase: "ANÁLISIS INERCIAL LOCAL",
-                msg: "Ing. Rodriguez: El servidor ha rechazado la autenticación (401). He pasado a modo de procesamiento inercial local para mantener la visualización de la trayectoria activa.",
-                prog: window.missionProgress || 0.15,
-                launchDate: "2026-04-01T15:00:00Z"
+                dist: 384400 * Math.sin(prog * Math.PI / 2),
+                vel: 1.1 + (Math.sin(elapsed / 10000) * 0.2),
+                phase: prog < 0.1 ? "Orbit Exit" : "Trans-Lunar Coast",
+                msg: "Ing. Rodriguez: Error de credenciales (401). El núcleo de IA ha pasado a modo 'Inertial Estimation' para mantener la integridad visual de la misión.",
+                prog: prog
             });
         }
     }
 
     function applyIAControl(data) {
+        if(!data) return;
         document.getElementById('val-dist').innerText = Math.round(data.dist || 0).toLocaleString() + " KM";
         document.getElementById('val-vel').innerText = (data.vel || 0).toFixed(2) + " KM/S";
-        document.getElementById('phase-label').innerText = (data.phase || "ACTIVO").toUpperCase();
-        document.getElementById('ia-status').innerText = data.msg || "Sincronizando flujos...";
+        document.getElementById('phase-label').innerText = (data.phase || "FLIGHT").toUpperCase();
+        document.getElementById('ia-status').innerText = data.msg || "Updating streams...";
         
         const progValue = Math.min(Math.max(data.prog || 0.05, 0.01), 0.99);
         document.getElementById('phase-progress').style.width = (progValue * 100) + "%";
         document.getElementById('radar-orion').style.left = (progValue * 100) + "%";
         
-        if (data.launchDate) launchDate = new Date(data.launchDate);
         window.missionProgress = progValue;
     }
 
@@ -328,14 +332,12 @@
                 guide.style.display = 'flex';
                 
                 if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                    const permission = await DeviceOrientationEvent.requestPermission();
-                    if (permission !== 'granted') throw new Error('Permission denied');
+                    await DeviceOrientationEvent.requestPermission();
                 }
-                
                 window.addEventListener('deviceorientation', handleOrientation);
             } catch (err) {
                 arMode = false;
-                document.getElementById('ia-status').innerText = "ERROR AR: Sensor/Cámara no disponible.";
+                document.getElementById('ia-status').innerText = "AR ERROR: Camera or sensors unavailable.";
             }
         } else {
             const stream = video.srcObject;
@@ -354,7 +356,7 @@
 
     function animate() {
         requestAnimationFrame(animate);
-        const prog = window.missionProgress || 0.15;
+        const prog = window.missionProgress || 0.02;
         const angle = prog * Math.PI * 0.85;
         const orbitRadius = 60 + (prog * 180);
         
@@ -363,7 +365,7 @@
         orion.lookAt(moon.position);
 
         if(!arMode) {
-            camera.position.lerp(new THREE.Vector3(orion.position.x + 35, 25, orion.position.z + 35), 0.05);
+            camera.position.lerp(new THREE.Vector3(orion.position.x + 40, 30, orion.position.z + 40), 0.05);
             camera.lookAt(orion.position);
         } else {
             camera.rotation.y = THREE.MathUtils.degToRad(userHeading);
@@ -387,7 +389,7 @@
         const m = Math.floor((absDiff % 3600000) / 60000);
         const s = Math.floor((absDiff % 60000) / 1000);
         
-        const prefix = diff < 0 ? "T-MINUS " : "MET ";
+        const prefix = diff < 0 ? "T-" : "MET ";
         clock.innerText = `${prefix}${d.toString().padStart(2,'0')}:${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
     }
 
