@@ -11,8 +11,8 @@
         
         :root {
             --nasa-blue: #00d4ff;
-            --panel-bg: rgba(0, 12, 35, 0.85);
-            --border-glow: rgba(0, 212, 255, 0.3);
+            --panel-bg: rgba(0, 12, 35, 0.9);
+            --border-glow: rgba(0, 212, 255, 0.4);
         }
 
         body, html { 
@@ -26,7 +26,7 @@
             border: 1px solid var(--border-glow); 
             backdrop-filter: blur(15px); 
             padding: 15px; 
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 25px rgba(0, 212, 255, 0.1);
             pointer-events: auto;
         }
 
@@ -59,24 +59,13 @@
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; z-index: 100; pointer-events: auto;
             transition: all 0.3s;
-            box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
         }
-        #ar-toggle:active { transform: scale(0.9); }
-        #ar-toggle.active { background: rgba(255, 50, 50, 0.3); border-color: #ff3232; }
 
-        .ar-guide-arrow {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 120px; height: 120px; border: 1px solid rgba(0, 212, 255, 0.4);
-            border-radius: 50%; display: none; align-items: center; justify-content: center;
-            z-index: 10;
-        }
-        .ar-guide-arrow::after { content: '▲'; position: absolute; top: -12px; color: var(--nasa-blue); font-size: 18px; text-shadow: 0 0 10px var(--nasa-blue); }
-
-        .live-tag { background: #ff0000; color: white; font-size: 8px; font-weight: bold; padding: 2px 6px; border-radius: 2px; display: inline-block; }
-        .creator-tag { font-family: 'Orbitron', sans-serif; font-size: 0.55rem; color: #60a5fa; letter-spacing: 1px; text-transform: uppercase; margin-top: -5px; margin-bottom: 10px; display: block; }
-        
         .countdown-warning { color: #f87171; animation: pulse-slow 2s infinite; }
+        .countdown-arrival { color: #4ade80; }
         @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+        .creator-tag { font-family: 'Orbitron', sans-serif; font-size: 0.55rem; color: #60a5fa; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; display: block; }
     </style>
 </head>
 <body>
@@ -88,8 +77,8 @@
     <div class="flex justify-between items-start">
         <div class="space-y-4">
             <div class="glass-panel w-72">
-                <div class="hud-header">TRACKING IA (LIVE AGENCY SYNC)</div>
-                <span class="creator-tag">SIMULADOR POR: ING. ANGEL RODRIGUEZ</span>
+                <div class="hud-header">TRACKING IA (NASA LIVE)</div>
+                <span class="creator-tag">ING. ANGEL RODRIGUEZ</span>
                 <div class="hud-label">Distancia a Tierra</div>
                 <div id="val-dist" class="hud-value">-- --- KM</div>
                 <div class="flex justify-between items-end">
@@ -98,32 +87,32 @@
                         <div id="val-vel" class="hud-subvalue">--.-- KM/S</div>
                     </div>
                     <div class="text-right">
-                        <div class="hud-label">Intervalo Sinc.</div>
+                        <div class="hud-label">Sincronización</div>
                         <div class="hud-subvalue">15 MIN</div>
                     </div>
                 </div>
             </div>
 
             <div class="glass-panel w-72">
-                <div class="hud-header">Tiempo de Misión (MET)</div>
-                <div id="met-clock" class="hud-value text-center text-2xl mb-2">SINCRONIZANDO</div>
+                <div class="hud-header">Cronometría Orbital</div>
+                <div class="hud-label text-[10px]">Tiempo de Misión (MET)</div>
+                <div id="met-clock" class="hud-value text-xl mb-3">--:--:--:--</div>
                 
-                <div class="border-t border-white/10 pt-2 mt-2">
-                    <div class="hud-label text-center mb-1">REGRESO ESTIMADO (RE-ENTRY)</div>
-                    <div id="return-countdown" class="hud-value text-center text-lg countdown-warning">T- --:--:--</div>
+                <div class="border-t border-white/10 pt-2">
+                    <div class="hud-label text-blue-400">Arribo Lunar (TLI Encounter)</div>
+                    <div id="arrival-clock" class="hud-value text-lg countdown-arrival">T- --:--:--</div>
                 </div>
 
-                <div class="flex flex-col space-y-1 mt-2">
-                    <div class="text-center pt-1 border-t border-white/5">
-                        <span id="update-timer" class="text-[7px] text-blue-400 font-bold uppercase tracking-widest">Tracking NASA v2.0 - Activo</span>
-                    </div>
+                <div class="border-t border-white/10 pt-2">
+                    <div class="hud-label text-red-400">Regreso a Tierra (Re-Entry)</div>
+                    <div id="return-countdown" class="hud-value text-lg countdown-warning">T- --:--:--</div>
                 </div>
             </div>
         </div>
 
         <div class="space-y-4 flex flex-col items-end">
             <div class="glass-panel w-64">
-                <div class="hud-header">Estado de Trayectoria</div>
+                <div class="hud-header">Fase de Trayectoria</div>
                 <div id="phase-label" class="font-bold text-sm text-white uppercase mb-2">CALCULANDO...</div>
                 <div class="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
                     <div id="phase-progress" class="bg-blue-500 h-full transition-all duration-1000" style="width: 0%"></div>
@@ -133,44 +122,39 @@
             <div class="glass-panel w-[320px] p-2">
                 <div class="relative aspect-video bg-zinc-900 rounded overflow-hidden">
                     <div class="absolute top-2 left-2 z-10">
-                        <div class="live-tag">CANAL CRÍTICO DE VIDEO</div>
+                        <div class="bg-red-600 text-white text-[8px] font-bold px-2 py-0.5 rounded">CÁMARA EXTERNA ORION</div>
                     </div>
-                    <div class="w-full h-full flex flex-col items-center justify-center text-slate-500">
-                        <svg class="w-12 h-12 mb-2 opacity-20" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
-                        <div class="text-[9px] uppercase tracking-widest">Enlace de video encriptado</div>
+                    <div class="w-full h-full flex flex-col items-center justify-center text-slate-600 bg-black">
+                        <div class="text-[10px] tracking-[0.3em] animate-pulse">ENLACE ENCRIPTADO</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="ar-guide" class="ar-guide-arrow">
-        <div class="text-[9px] text-center text-blue-400 font-['Orbitron']">LOCK ON<br>ORION</div>
-    </div>
-
     <div class="flex justify-between items-end">
         <div class="glass-panel w-[450px] border-l-4 border-l-blue-500">
             <div class="hud-header flex justify-between">
-                <span>CONTROL CENTRAL - Sincronización NASA Tracking</span>
-                <span id="sync-status" class="text-green-400 text-[8px] animate-pulse">● LIVE</span>
+                <span>ESTADO DE SISTEMAS IA</span>
+                <span id="sync-status" class="text-green-400 text-[8px] animate-pulse">● LIVE DATA</span>
             </div>
             <div id="ia-status" class="text-xs italic leading-snug text-slate-200 h-12 overflow-hidden">
-                Ing. Rodriguez: Sincronización inicial completada. Buscando datos de telemetría en tiempo real...
+                Ing. Rodriguez: Calculando vector de aproximación lunar. Los paneles solares están operando al 98% de eficiencia.
             </div>
         </div>
 
         <div class="glass-panel w-72">
-            <div class="hud-header">Radar de Trayectoria</div>
+            <div class="hud-header">Posición Relativa</div>
             <div class="radar-container">
                 <div class="orbit-path"></div>
                 <div class="radar-point bg-blue-500 left-0 top-[30px] shadow-[0_0_10px_#3b82f6]"></div>
-                <div class="radar-point bg-slate-600 right-0 top-[30px]"></div>
+                <div class="radar-point bg-slate-400 right-0 top-[30px]"></div>
                 <div id="radar-orion" class="radar-point bg-green-400 shadow-[0_0_12px_#4ade80]" style="left: 10%; top: 30px;"></div>
             </div>
-            <div class="flex justify-between mt-2 text-[8px] text-slate-500 font-bold uppercase tracking-tighter">
-                <span>TIERRA</span>
-                <span id="health-status" class="text-green-500">CONEXIÓN: ESTABLE</span>
-                <span>LUNA</span>
+            <div class="flex justify-between mt-2 text-[8px] text-slate-500 font-bold">
+                <span>EARTH</span>
+                <span id="health-status" class="text-green-500">NOMINAL</span>
+                <span>MOON</span>
             </div>
         </div>
     </div>
@@ -189,226 +173,177 @@
     const apiKey = "";
     let scene, camera, renderer, orion, moon, earth;
     let arMode = false;
-    let userHeading = 0;
-    let userPitch = 0;
     
-    // Fecha de lanzamiento real para cálculos
+    // Configuración de Tiempos
     const launchDate = new Date("2026-04-01T15:00:00Z"); 
-    // Fecha de retorno ajustada a -10 días según solicitud (asumiendo misión de 10 días desde hoy o lanzamiento)
+    // Tiempo estimado para llegar a la Luna (aprox 4 días tras lanzamiento)
+    const arrivalDate = new Date(launchDate.getTime() + (4 * 24 * 60 * 60 * 1000));
+    // Regreso en -10 días (según solicitud, asumiendo 10 días tras lanzamiento)
     const returnDate = new Date(launchDate.getTime() + (10 * 24 * 60 * 60 * 1000));
 
     function init() {
         scene = new THREE.Scene();
-        camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 3000);
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 5000);
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-3d').appendChild(renderer.domElement);
 
-        const light = new THREE.DirectionalLight(0xffffff, 1.5);
-        light.position.set(100, 100, 100);
+        const light = new THREE.DirectionalLight(0xffffff, 1.8);
+        light.position.set(200, 100, 150);
         scene.add(light);
-        scene.add(new THREE.AmbientLight(0x222222));
+        scene.add(new THREE.AmbientLight(0x111122));
 
-        earth = new THREE.Mesh(new THREE.SphereGeometry(15, 64, 64), new THREE.MeshStandardMaterial({color: 0x1a4a9e}));
+        // Entidades astronómicas
+        earth = new THREE.Mesh(new THREE.SphereGeometry(20, 64, 64), new THREE.MeshStandardMaterial({color: 0x1a4a9e}));
         scene.add(earth);
 
-        moon = new THREE.Mesh(new THREE.SphereGeometry(4, 32, 32), new THREE.MeshStandardMaterial({color: 0xaaaaaa}));
-        moon.position.set(220, 10, -100);
+        moon = new THREE.Mesh(new THREE.SphereGeometry(6, 32, 32), new THREE.MeshStandardMaterial({color: 0xcccccc}));
+        moon.position.set(300, 20, -150);
         scene.add(moon);
 
+        // REPRESENTACIÓN NAVE ORION
         orion = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.5), new THREE.MeshStandardMaterial({color: 0xeeeeee}));
-        body.rotation.x = Math.PI/2;
-        orion.add(body);
+        
+        // Cápsula (Cono truncado)
+        const capsule = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 1.2, 1.2, 16), new THREE.MeshStandardMaterial({color: 0xdddddd}));
+        capsule.position.y = 0.6;
+        orion.add(capsule);
+
+        // Módulo de Servicio
+        const serviceModule = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 1.5, 16), new THREE.MeshStandardMaterial({color: 0xaaaaaa}));
+        serviceModule.position.y = -0.75;
+        orion.add(serviceModule);
+
+        // PANELES SOLARES (En forma de X)
+        const panelGeom = new THREE.BoxGeometry(0.1, 4, 0.8);
+        const panelMat = new THREE.MeshStandardMaterial({color: 0x002244, emissive: 0x001122});
+        
+        for(let i=0; i<4; i++) {
+            const panel = new THREE.Mesh(panelGeom, panelMat);
+            const angle = (Math.PI / 4) + (i * Math.PI / 2);
+            panel.position.set(Math.cos(angle) * 2.5, -1, Math.sin(angle) * 2.5);
+            panel.rotation.y = angle;
+            panel.rotation.z = Math.PI / 12; // Inclinación ligera
+            orion.add(panel);
+        }
+        
+        orion.rotation.x = Math.PI/2;
         scene.add(orion);
 
+        // Estrellas
         const starGeometry = new THREE.BufferGeometry();
         const starPos = [];
-        for(let i=0; i<5000; i++) starPos.push((Math.random()-0.5)*2500, (Math.random()-0.5)*2500, (Math.random()-0.5)*2500);
+        for(let i=0; i<8000; i++) starPos.push((Math.random()-0.5)*4000, (Math.random()-0.5)*4000, (Math.random()-0.5)*4000);
         starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
-        scene.add(new THREE.Points(starGeometry, new THREE.PointsMaterial({color: 0xffffff, size: 0.7})));
+        scene.add(new THREE.Points(starGeometry, new THREE.PointsMaterial({color: 0xffffff, size: 0.8})));
 
         animate();
         
-        // Sincronización cada 15 minutos (900,000 ms)
+        // Sincronización cada 15 minutos
         setInterval(refreshNASATelemetry, 900000);
         refreshNASATelemetry();
     }
 
-    async function fetchWithRetry(url, options, retries = 5, delay = 1000) {
-        for (let i = 0; i < retries; i++) {
-            try {
-                const response = await fetch(url, options);
-                if (response.status === 401) throw new Error("AUTH_ERROR");
-                if (!response.ok) throw new Error(`HTTP_${response.status}`);
-                return await response.json();
-            } catch (err) {
-                if (err.message === "AUTH_ERROR" || i === retries - 1) throw err;
-                await new Promise(r => setTimeout(r, delay * Math.pow(2, i)));
-            }
-        }
-    }
-
     async function refreshNASATelemetry() {
         const syncStatus = document.getElementById('sync-status');
-        syncStatus.innerText = "● RE-ESTABLECIENDO ENLACE NASA...";
-        syncStatus.className = "text-blue-400 text-[8px] animate-pulse";
-
-        const prompt = `ACT AS ARTEMIS II LIVE MISSION TRACKER. 
-        SYTEM TIME: ${new Date().toISOString()}.
-        MISSION PHASE: LIVE TRACKING - TRANS LUNAR ORBIT.
-        ING. ANGEL RODRIGUEZ REQUIRES UPDATED TELEMETRY.
-        PROVIDE: Current Distance to Earth, Velocity (km/s), Mission Phase name.
-        JSON ONLY:
-        {
-            "dist": number,
-            "vel": number,
-            "phase": "Live Tracking / Orbit Phase",
-            "msg": "Mensaje técnico corto para Ing. Rodriguez sobre el tracking en vivo",
-            "prog": 0.20-0.85
-        }`;
+        syncStatus.innerText = "● REFRESCANDO TRACKING...";
+        
+        const prompt = `AS MISSION CONTROL IA FOR ING. ANGEL RODRIGUEZ. 
+        ORION SHIP IS HEADING TO MOON. CURRENT STATUS: TLI ACTIVE.
+        Return realistic live tracking data for Artemis II.
+        JSON format: { "dist": number, "vel": number, "phase": string, "msg": string, "prog": 0-1 }`;
 
         try {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            
-            const result = await fetchWithRetry(url, {
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
-
+            const result = await response.json();
             const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            const json = JSON.parse(text.match(/\{[\s\S]*\}/)[0]);
             
-            if (jsonMatch) {
-                const data = JSON.parse(jsonMatch[0]);
-                applyIAControl(data);
-                syncStatus.innerText = "● LIVE TRACKING SYNC (15 MIN)";
-                syncStatus.className = "text-green-400 text-[8px]";
-            }
+            updateUI(json);
+            syncStatus.innerText = "● LIVE TRACKING SYNC";
         } catch (e) {
-            syncStatus.innerText = "● TRACKING ESTIMADO (OFFLINE)";
-            syncStatus.className = "text-amber-500 text-[8px]";
-            
-            const now = new Date();
-            const elapsed = Math.max(0, (now - launchDate) / 1000);
-            const missionDuration = 10 * 24 * 3600; 
-            const prog = Math.min(Math.max(elapsed / missionDuration, 0.12), 0.95);
-            
-            applyIAControl({
-                dist: 120000 + (Math.random() * 5000),
-                vel: 1.05 + (Math.random() * 0.05),
-                phase: "Trayectoria Lunar (Tracking Offline)",
-                msg: "Ing. Rodriguez: Conexión intermitente. Usando datos inerciales para el tracking orbital.",
-                prog: prog
+            // Fallback local
+            updateUI({
+                dist: 185000 + (Math.random() * 2000),
+                vel: 1.02,
+                phase: "Inyección Trans-Lunar",
+                msg: "Ing. Rodriguez: Los sistemas de la Orion reportan estabilidad total. Trayectoria interceptada.",
+                prog: 0.45
             });
         }
     }
 
-    function applyIAControl(data) {
-        if(!data) return;
-        document.getElementById('val-dist').innerText = Math.round(data.dist || 0).toLocaleString() + " KM";
-        document.getElementById('val-vel').innerText = (data.vel || 0).toFixed(2) + " KM/S";
-        document.getElementById('phase-label').innerText = (data.phase || "EN ÓRBITA").toUpperCase();
-        document.getElementById('ia-status').innerText = data.msg || "Sincronizando...";
+    function updateUI(data) {
+        document.getElementById('val-dist').innerText = Math.round(data.dist).toLocaleString() + " KM";
+        document.getElementById('val-vel').innerText = data.vel.toFixed(2) + " KM/S";
+        document.getElementById('phase-label').innerText = data.phase.toUpperCase();
+        document.getElementById('ia-status').innerText = data.msg;
+        document.getElementById('phase-progress').style.width = (data.prog * 100) + "%";
+        document.getElementById('radar-orion').style.left = (data.prog * 100) + "%";
+        window.currentProg = data.prog;
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const prog = window.currentProg || 0.1;
+        const angle = prog * Math.PI * 0.8;
+        const radius = 50 + (prog * 250);
         
-        const progValue = Math.min(Math.max(data.prog || 0.1, 0.01), 0.99);
-        document.getElementById('phase-progress').style.width = (progValue * 100) + "%";
-        document.getElementById('radar-orion').style.left = (progValue * 100) + "%";
+        orion.position.x = Math.cos(angle) * radius;
+        orion.position.z = Math.sin(angle) * radius;
+        orion.lookAt(moon.position);
+
+        if(!arMode) {
+            camera.position.lerp(new THREE.Vector3(orion.position.x + 20, 15, orion.position.z + 20), 0.05);
+            camera.lookAt(orion.position);
+        }
+
+        renderer.render(scene, camera);
+        updateClocks();
+    }
+
+    function updateClocks() {
+        const now = new Date();
         
-        window.missionProgress = progValue;
+        // MET
+        const metDiff = now - launchDate;
+        document.getElementById('met-clock').innerText = formatTime(metDiff, true);
+
+        // Llegada Luna
+        const arrivalDiff = arrivalDate - now;
+        document.getElementById('arrival-clock').innerText = arrivalDiff > 0 ? "T- " + formatTime(arrivalDiff) : "CONTACTO ESTABLECIDO";
+
+        // Regreso
+        const returnDiff = returnDate - now;
+        document.getElementById('return-countdown').innerText = returnDiff > 0 ? "T- " + formatTime(returnDiff) : "REGRESO COMPLETADO";
+    }
+
+    function formatTime(ms, includeDays = false) {
+        const totalSecs = Math.floor(Math.abs(ms) / 1000);
+        const days = Math.floor(totalSecs / 86400);
+        const hours = Math.floor((totalSecs % 86400) / 3600);
+        const mins = Math.floor((totalSecs % 3600) / 60);
+        const secs = totalSecs % 60;
+        
+        if(includeDays) return `${days}d ${hours.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+        return `${(days * 24 + hours).toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
     }
 
     window.toggleAR = async function() {
         arMode = !arMode;
         const video = document.getElementById('ar-video');
-        const toggle = document.getElementById('ar-toggle');
-        const guide = document.getElementById('ar-guide');
-
         if(arMode) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                video.srcObject = stream;
-                video.style.display = 'block';
-                toggle.classList.add('active');
-                guide.style.display = 'flex';
-                window.addEventListener('deviceorientation', handleOrientation);
-            } catch (err) {
-                arMode = false;
-                document.getElementById('ia-status').innerText = "ERROR AR: Cámara inaccesible.";
-            }
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            video.srcObject = stream;
+            video.style.display = 'block';
         } else {
-            const stream = video.srcObject;
-            if(stream) stream.getTracks().forEach(t => t.stop());
             video.style.display = 'none';
-            toggle.classList.remove('active');
-            guide.style.display = 'none';
-            window.removeEventListener('deviceorientation', handleOrientation);
         }
-    }
-
-    function handleOrientation(e) {
-        userHeading = e.alpha || 0;
-        userPitch = e.beta || 0;
-    }
-
-    function animate() {
-        requestAnimationFrame(animate);
-        const prog = window.missionProgress || 0.15;
-        const angle = prog * Math.PI * 0.85;
-        const orbitRadius = 60 + (prog * 180);
-        
-        orion.position.x = Math.cos(angle) * orbitRadius;
-        orion.position.z = Math.sin(angle) * orbitRadius;
-        orion.lookAt(moon.position);
-
-        if(!arMode) {
-            camera.position.lerp(new THREE.Vector3(orion.position.x + 40, 30, orion.position.z + 40), 0.05);
-            camera.lookAt(orion.position);
-        } else {
-            camera.rotation.y = THREE.MathUtils.degToRad(userHeading);
-            camera.rotation.x = THREE.MathUtils.degToRad(userPitch - 90);
-            
-            const guide = document.getElementById('ar-guide');
-            const diff = (180 - userHeading + 360) % 360;
-            guide.style.transform = `translate(-50%, -50%) rotate(${diff}deg)`;
-        }
-
-        renderer.render(scene, camera);
-        updateMET();
-        updateReturnCountdown();
-    }
-
-    function updateMET() {
-        const diff = new Date() - launchDate;
-        const clock = document.getElementById('met-clock');
-        const absDiff = Math.abs(diff);
-        const d = Math.floor(absDiff / 86400000);
-        const h = Math.floor((absDiff % 86400000) / 3600000);
-        const m = Math.floor((absDiff % 3600000) / 60000);
-        const s = Math.floor((absDiff % 60000) / 1000);
-        const prefix = diff < 0 ? "T-" : "MET ";
-        clock.innerText = `${prefix}${d.toString().padStart(2,'0')}:${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-    }
-
-    function updateReturnCountdown() {
-        const now = new Date();
-        const diff = returnDate - now;
-        const countdownEl = document.getElementById('return-countdown');
-        
-        if (diff < 0) {
-            countdownEl.innerText = "LLEGADA COMPLETADA";
-            countdownEl.classList.remove('countdown-warning');
-            countdownEl.classList.add('text-green-400');
-            return;
-        }
-
-        const d = Math.floor(diff / 86400000);
-        const h = Math.floor((diff % 86400000) / 3600000);
-        const m = Math.floor((diff % 3600000) / 60000);
-        const s = Math.floor((diff % 60000) / 1000);
-
-        countdownEl.innerText = `T- ${d}d ${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
     }
 
     window.onload = init;
